@@ -1,0 +1,64 @@
+/* Generated from the Stitch "Calm Sanctuary" design system. RGB triples so Tailwind can apply opacity. */
+:root {
+  --c-background: 248 249 255;
+  --c-surface: 248 249 255;
+  --c-surface-container-lowest: 255 255 255;
+  --c-surface-container-low: 239 244 255;
+  --c-surface-container: 229 238 255;
+  --c-surface-container-high: 220 233 255;
+  --c-surface-container-highest: 211 228 254;
+  --c-on-surface: 11 28 48;
+  --c-on-surface-variant: 62 73 71;
+  --c-outline: 110 121 119;
+  --c-outline-variant: 189 201 198;
+  --c-primary: 0 92 85;
+  --c-on-primary: 255 255 255;
+  --c-primary-container: 15 118 110;
+  --c-on-primary-container: 163 250 239;
+  --c-primary-fixed: 156 242 232;
+  --c-on-primary-fixed-variant: 0 80 74;
+  --c-secondary: 0 107 95;
+  --c-secondary-container: 109 245 225;
+  --c-on-secondary-container: 0 111 100;
+  --c-tertiary: 0 86 131;
+  --c-tertiary-container: 204 229 255;
+  --c-on-tertiary-container: 0 75 115;
+  --c-error: 186 26 26;
+  --c-on-error: 255 255 255;
+  --c-error-container: 255 218 214;
+  --c-on-error-container: 147 0 10;
+  --c-inverse-surface: 33 49 69;
+  --c-inverse-on-surface: 234 241 255;
+}
+
+:root.dark {
+  --c-background: 10 18 32;
+  --c-surface: 10 18 32;
+  --c-surface-container-lowest: 16 27 45;
+  --c-surface-container-low: 14 24 42;
+  --c-surface-container: 21 35 58;
+  --c-surface-container-high: 28 45 72;
+  --c-surface-container-highest: 37 56 83;
+  --c-on-surface: 228 236 249;
+  --c-on-surface-variant: 167 181 201;
+  --c-outline: 123 138 158;
+  --c-outline-variant: 44 60 85;
+  --c-primary: 92 214 201;
+  --c-on-primary: 0 32 29;
+  --c-primary-container: 15 118 110;
+  --c-on-primary-container: 163 250 239;
+  --c-primary-fixed: 15 63 59;
+  --c-on-primary-fixed-variant: 156 242 232;
+  --c-secondary: 79 219 200;
+  --c-secondary-container: 0 80 74;
+  --c-on-secondary-container: 109 245 225;
+  --c-tertiary: 147 204 255;
+  --c-tertiary-container: 0 58 92;
+  --c-on-tertiary-container: 204 229 255;
+  --c-error: 255 180 171;
+  --c-on-error: 105 0 5;
+  --c-error-container: 92 26 23;
+  --c-on-error-container: 255 218 214;
+  --c-inverse-surface: 228 236 249;
+  --c-inverse-on-surface: 11 28 48;
+}

@@ -1,0 +1,14 @@
+import { fileURLToPath, URL } from 'node:url'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  server: {
+    port: 5173,
+    // In dev, /api is proxied so the refresh cookie is same-origin (no CORS or SameSite pain).
+    proxy: { '/api': 'http://localhost:8000' },
+  },
+  test: { environment: 'happy-dom', include: ['tests/**/*.test.ts'] },
+})
