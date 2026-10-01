@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="description" content="Send files privately. Locked in your browser before upload, with links that expire or self-destruct." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Link previews (WhatsApp, X, Telegram, Slack, LinkedIn...). Crawlers don't run JavaScript,
+         so these must be static, and image URLs must be absolute. No og:url on purpose: private
+         share links (/s/...) should keep their own URL instead of being canonicalised to the homepage. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Lockbox" />
+    <meta property="og:title" content="Lockbox: send files privately" />
+    <meta property="og:description" content="Locked in your browser before upload. Links that expire or self-destruct after one download." />
+    <meta property="og:image" content="https://app.lockbox.cv/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lockbox: send files privately. End-to-end encrypted, one-time links." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lockbox: send files privately" />
+    <meta name="twitter:description" content="Locked in your browser before upload. Links that expire or self-destruct after one download." />
+    <meta name="twitter:image" content="https://app.lockbox.cv/og-image.jpg" />
+    <meta name="twitter:image:alt" content="Lockbox: send files privately. End-to-end encrypted, one-time links." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=swap"
+      rel="stylesheet"
+    />
+    <title>Lockbox — private file sharing</title>
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
