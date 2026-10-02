@@ -35,6 +35,7 @@ const linkClass = 'rounded-lg px-3 py-2 text-sm font-medium text-on-surface-vari
           <nav class="hidden items-center gap-1 sm:flex" aria-label="App">
             <RouterLink :to="{ name: 'dashboard' }" :class="linkClass" active-class="!bg-surface-container !text-on-surface">My files</RouterLink>
             <RouterLink :to="{ name: 'send' }" :class="linkClass" active-class="!bg-surface-container !text-on-surface">Send a file</RouterLink>
+            <RouterLink v-if="auth.isStaff" :to="{ name: 'admin' }" :class="linkClass" active-class="!bg-surface-container !text-on-surface">Admin</RouterLink>
           </nav>
         </div>
         <div class="flex items-center gap-2">
@@ -58,6 +59,9 @@ const linkClass = 'rounded-lg px-3 py-2 text-sm font-medium text-on-surface-vari
               </RouterLink>
               <RouterLink :to="{ name: 'send' }" role="menuitem" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-container sm:hidden" @click="menuOpen = false">
                 <Icon name="add" :size="18" /> Send a file
+              </RouterLink>
+              <RouterLink v-if="auth.isStaff" :to="{ name: 'admin' }" role="menuitem" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-container sm:hidden" @click="menuOpen = false">
+                <Icon name="monitoring" :size="18" /> Admin
               </RouterLink>
               <button type="button" role="menuitem" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-error hover:bg-error-container" @click="logout">
                 <Icon name="logout" :size="18" /> Log out

@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { setSessionLostHandler } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { guardRedirect } from './guards'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
+    requiresStaff?: boolean
     guestOnly?: boolean
     title?: string
   }
@@ -37,6 +39,7 @@ export const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: 'My files' } },
+        { path: 'admin', name: 'admin', component: () => import('@/views/admin/AdminDashboardView.vue'), meta: { requiresStaff: true, title: 'Admin insights' } },
         { path: 'send', name: 'send', component: () => import('@/views/SendView.vue'), meta: { title: 'Send a file' } },
         { path: 'links/:id', name: 'link-activity', component: () => import('@/views/LinkActivityView.vue'), props: true, meta: { title: 'Activity' } },
         { path: 'links/:id/ready', name: 'link-ready', component: () => import('@/views/LinkReadyView.vue'), props: true, meta: { title: 'Your link is ready' } },
@@ -47,11 +50,8 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth || to.meta.guestOnly) await auth.bootstrap()
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
-  }
-  if (to.meta.guestOnly && auth.isAuthenticated) return { name: 'dashboard' }
+  if (to.meta.requiresAuth || to.meta.requiresStaff || to.meta.guestOnly) await auth.bootstrap()
+  return guardRedirect(to, { isAuthenticated: auth.isAuthenticated, isStaff: auth.isStaff }) ?? true
 })
 
 router.afterEach((to) => {

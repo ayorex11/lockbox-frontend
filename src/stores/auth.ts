@@ -12,6 +12,7 @@ const setHint = (on: boolean) => {
 
 export const useAuthStore = defineStore('auth', () => {
   const email = ref<string | null>(null)
+  const isStaff = ref(false)
   const ready = ref(false)
   const isAuthenticated = computed(() => email.value !== null)
   let bootstrapping: Promise<void> | null = null
@@ -23,8 +24,11 @@ export const useAuthStore = defineStore('auth', () => {
       bootstrapping = (async () => {
         try {
           if (hasHint()) {
-            if (await refreshAccessToken()) email.value = (await authApi.me()).email
-            else setHint(false)
+            if (await refreshAccessToken()) {
+              const me = await authApi.me()
+              email.value = me.email
+              isStaff.value = me.is_staff === true
+            } else setHint(false)
           }
         } catch {
           email.value = null
@@ -40,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await authApi.login(emailInput, password)
     setAccessToken(data.access)
     email.value = data.user.email
+    isStaff.value = data.user.is_staff === true
     ready.value = true
     setHint(true)
   }
@@ -47,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
   function clearSession() {
     setAccessToken(null)
     email.value = null
+    isStaff.value = false
     setHint(false)
     useKeyStore().clear()
   }
@@ -56,5 +62,5 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession()
   }
 
-  return { email, ready, isAuthenticated, bootstrap, login, logout, clearSession }
+  return { email, isStaff, ready, isAuthenticated, bootstrap, login, logout, clearSession }
 })

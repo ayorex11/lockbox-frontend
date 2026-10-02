@@ -81,3 +81,21 @@ export function displayNetwork(truncated: string): string {
 export function buildShareUrl(linkId: string, key: string, origin = window.location.origin): string {
   return `${origin}/s/${linkId}#${key}`
 }
+
+/** 0.4286 -> "43%". null (nothing to divide by) -> "—". */
+export function formatPercent(rate: number | null | undefined): string {
+  return rate === null || rate === undefined || !Number.isFinite(rate) ? '—' : `${Math.round(rate * 100)}%`
+}
+
+const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
+/** 1200 -> "1.2K". Used for chart axes. */
+export function formatCompact(value: number): string {
+  return compact.format(value)
+}
+
+const shortDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+/** "2026-10-02" -> "Oct 2". The API buckets days in UTC, so display them in UTC too. */
+export function formatShortDate(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`)
+  return Number.isNaN(d.getTime()) ? day : shortDate.format(d)
+}

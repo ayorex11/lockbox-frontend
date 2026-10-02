@@ -38,7 +38,7 @@ onBeforeUnmount(() => clearInterval(lockTimer))
 
 function safeRedirect(): string {
   const target = route.query.redirect
-  return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : '/dashboard'
+  return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : auth.isStaff ? '/admin' : '/dashboard'
 }
 
 async function submit() {

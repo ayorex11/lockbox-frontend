@@ -13,6 +13,8 @@ export type TtlChoice = '1h' | '24h' | '7d'
 export type AuditEventType =
   | 'link_created' | 'opened' | 'password_failed' | 'locked_out' | 'claimed' | 'revoked' | 'expired_cleanup'
 
+export interface AuthUser { email: string; is_staff: boolean }
+
 export interface ShareLink {
   id: string
   url: string
@@ -44,6 +46,49 @@ export interface AuditEvent {
   ip_truncated: string
   user_agent: string
   created_at: string
+}
+
+// ---- admin dashboard (staff only; mirrors backend insights/queries.py) ----
+export type Rate = number | null // 0..1, or null when there is nothing to divide by
+
+export interface AdminOverview {
+  generated_at: string
+  users: {
+    total: number; verified: number; new_7d: number; new_30d: number
+    senders_ever: number; active_senders_7d: number; active_senders_30d: number
+  }
+  links: {
+    total: number; active: number; used: number; expired: number; revoked: number
+    one_time: number; timed: number; password_protected: number; created_7d: number; created_30d: number
+  }
+  engagement: { claims: number; opens: number; opens_incl_bots: number; password_failed: number; locked_out: number }
+  funnels: {
+    users: { signed_up: number; verified: number; created_a_link: number; verify_rate: Rate; link_rate: Rate }
+    links: {
+      created: number; opened: number; claimed: number; open_rate: Rate; claim_rate: Rate
+      never_opened: number; expired_never_opened: number
+    }
+    uploads: { files_started: number; files_never_linked: number; link_rate: Rate }
+  }
+  storage: { files_in_storage: number; bytes_in_storage: number; bytes_shared_all_time: number }
+}
+
+export interface DailyPoint { date: string; signups: number; links_created: number; opens: number; claims: number }
+export interface AdminTimeseries { days: number; series: DailyPoint[] }
+
+export type TopMetric = 'links' | 'claims' | 'bytes'
+export interface TopUser {
+  email: string; links: number; claims: number; bytes_shared: number
+  last_link_at: string | null; joined_at: string
+}
+export interface AdminTopUsers { metric: TopMetric; results: TopUser[] }
+
+export interface SecurityCounts { password_failed: number; locked_out: number }
+export interface SecurityPoint extends SecurityCounts { date: string }
+export interface AdminSecurity {
+  windows: Record<'24h' | '7d' | '30d', SecurityCounts>
+  links_with_failures_7d: number
+  series: SecurityPoint[]
 }
 
 export interface UploadInit {
@@ -204,11 +249,11 @@ export const authApi = {
   resendVerification: (email: string) =>
     request<{ detail: string }>('/api/auth/resend-verification', { body: { email } }),
   login: (email: string, password: string) =>
-    request<{ access: string; user: { email: string } }>('/api/auth/login', {
+    request<{ access: string; user: AuthUser }>('/api/auth/login', {
       body: { email, password }, cookies: true,
     }),
   logout: () => request<Record<string, never>>('/api/auth/logout', { method: 'POST', cookies: true }),
-  me: () => request<{ email: string; is_email_verified: boolean }>('/api/auth/me', { auth: true }),
+  me: () => request<{ email: string; is_email_verified: boolean; is_staff: boolean }>('/api/auth/me', { auth: true }),
 }
 
 // ------------------------------------------------------------------------------ sender
@@ -234,6 +279,16 @@ export const linksApi = {
   events: (id: string, page = 1) =>
     request<Page<AuditEvent>>(`/api/links/${id}/events/${page > 1 ? `?page=${page}` : ''}`, { auth: true }),
   revoke: (id: string) => request<ShareLink>(`/api/links/${id}/revoke/`, { method: 'POST', auth: true }),
+}
+
+// ------------------------------------------------------------------------------- admin
+/** Staff-only. Non-staff callers get ApiError 403 with code "staff_only". */
+export const adminApi = {
+  overview: () => request<AdminOverview>('/api/admin/overview/', { auth: true }),
+  timeseries: (days = 30) => request<AdminTimeseries>(`/api/admin/timeseries/?days=${days}`, { auth: true }),
+  topUsers: (metric: TopMetric = 'links', limit = 10) =>
+    request<AdminTopUsers>(`/api/admin/top-users/?metric=${metric}&limit=${limit}`, { auth: true }),
+  security: () => request<AdminSecurity>('/api/admin/security/', { auth: true }),
 }
 
 // ---------------------------------------------------------------------------- recipient
