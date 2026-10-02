@@ -34,7 +34,7 @@ function openMailApp() {
 const steps = [
   'Open the email from Lockbox',
   'Click “Confirm your email”',
-  'Log in and send your first file',
+  'Choose your password, then send your first file',
 ]
 </script>
 

@@ -100,6 +100,7 @@ const accessText = computed(() => {
             <BaseButton variant="soft" size="sm" icon="mail" @click="shareByEmail">Share via email</BaseButton>
             <BaseButton variant="soft" size="sm" icon="qr_code_2" @click="qrOpen = true">Show QR code</BaseButton>
           </div>
+          <p class="hint mt-3">Emailing the link puts the key in the message. For sensitive files, use a password and send it on a different channel.</p>
         </div>
       </div>
 

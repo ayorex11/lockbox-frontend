@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { authApi, refreshAccessToken, setAccessToken } from '@/lib/api'
+import { authApi, refreshOutcome, setAccessToken } from '@/lib/api'
 import { useKeyStore } from './keys'
 
 // Non-sensitive hint (no tokens) so anonymous visitors, like link recipients, don't fire a refresh request.
@@ -8,6 +8,14 @@ const HINT_KEY = 'lockbox:session'
 const hasHint = () => { try { return localStorage.getItem(HINT_KEY) === '1' } catch { return false } }
 const setHint = (on: boolean) => {
   try { on ? localStorage.setItem(HINT_KEY, '1') : localStorage.removeItem(HINT_KEY) } catch { /* ignore */ }
+}
+
+// Who the stored link keys belong to. If someone else logs in on this browser, the previous
+// person's keys are wiped, since a session that merely expired never wiped them.
+const OWNER_KEY = 'lockbox:owner'
+const readOwner = () => { try { return localStorage.getItem(OWNER_KEY) } catch { return null } }
+const writeOwner = (email: string | null) => {
+  try { email ? localStorage.setItem(OWNER_KEY, email) : localStorage.removeItem(OWNER_KEY) } catch { /* ignore */ }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -24,11 +32,16 @@ export const useAuthStore = defineStore('auth', () => {
       bootstrapping = (async () => {
         try {
           if (hasHint()) {
-            if (await refreshAccessToken()) {
+            const outcome = await refreshOutcome()
+            if (outcome.kind === 'ok') {
               const me = await authApi.me()
-              email.value = me.email
+              adopt(me.email)
               isStaff.value = me.is_staff === true
-            } else setHint(false)
+            } else if (outcome.kind === 'rejected') {
+              setHint(false)
+            }
+            // 'unavailable' (offline, throttled, server waking up): keep the hint so the next
+            // page load tries again, instead of forgetting a perfectly good session.
           }
         } catch {
           email.value = null
@@ -40,26 +53,41 @@ export const useAuthStore = defineStore('auth', () => {
     return bootstrapping
   }
 
+  function adopt(address: string) {
+    const previousOwner = readOwner()
+    if (previousOwner && previousOwner !== address) useKeyStore().clear()
+    writeOwner(address)
+    email.value = address
+  }
+
   async function login(emailInput: string, password: string) {
     const data = await authApi.login(emailInput, password)
     setAccessToken(data.access)
-    email.value = data.user.email
     isStaff.value = data.user.is_staff === true
     ready.value = true
     setHint(true)
+    adopt(data.user.email)
   }
 
-  function clearSession() {
+  /**
+   * End the local session. `wipeKeys` is true only for an explicit log out: the stored link
+   * keys are the sender's only copy of each decryption key, so an expired or failed session
+   * must never destroy them.
+   */
+  function clearSession(wipeKeys = true) {
     setAccessToken(null)
     email.value = null
     isStaff.value = false
     setHint(false)
-    useKeyStore().clear()
+    if (wipeKeys) {
+      useKeyStore().clear()
+      writeOwner(null)
+    }
   }
 
   async function logout() {
     try { await authApi.logout() } catch { /* cookie may already be gone */ }
-    clearSession()
+    clearSession(true)
   }
 
   return { email, isStaff, ready, isAuthenticated, bootstrap, login, logout, clearSession }

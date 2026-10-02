@@ -66,11 +66,11 @@ describe('api client', () => {
   })
 
   it('maps API errors, including DRF field errors and machine codes', async () => {
-    fetchMock.mockResolvedValue(json(400, { password: ['Too short.'], detail: undefined }))
-    const error = await authApi.register('a@b.co', 'x').catch((e) => e)
+    fetchMock.mockResolvedValue(json(400, { email: ['Enter a valid email address.'], detail: undefined }))
+    const error = await authApi.register('nope').catch((e) => e)
     expect(error).toBeInstanceOf(ApiError)
     expect(error.status).toBe(400)
-    expect(error.fieldErrors).toEqual({ password: ['Too short.'] })
+    expect(error.fieldErrors).toEqual({ email: ['Enter a valid email address.'] })
 
     fetchMock.mockResolvedValue(json(423, { detail: 'locked', retry_after: 88 }))
     const locked = await authApi.login('a@b.co', 'x').catch((e) => e)

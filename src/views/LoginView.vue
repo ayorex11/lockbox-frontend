@@ -85,6 +85,7 @@ async function resend() {
         <input id="email" v-model="email" type="email" class="field" placeholder="you@example.com" autocomplete="email" required />
       </div>
       <PasswordField id="password" v-model="password" label="Password" autocomplete="current-password" />
+      <p class="-mt-2 text-right text-sm"><RouterLink :to="{ name: 'forgot-password' }" class="font-medium text-primary hover:underline">Forgot password?</RouterLink></p>
 
       <p v-if="error" class="flex items-start gap-2 rounded-xl bg-error-container px-4 py-3 text-sm text-on-error-container" role="alert">
         <Icon name="error" fill :size="18" class="mt-px" />{{ error }}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import BaseButton from '@/components/BaseButton.vue'
 import Icon from '@/components/Icon.vue'
 import PasswordField from '@/components/PasswordField.vue'
@@ -8,29 +8,22 @@ import PasswordStrength from '@/components/PasswordStrength.vue'
 import { ApiError, authApi } from '@/lib/api'
 import { describeError } from '@/lib/errors'
 import { passwordAcceptable } from '@/lib/password'
-import { useToastStore } from '@/stores/toast'
 
 const route = useRoute()
-const toast = useToastStore()
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 const state = ref<'form' | 'success' | 'invalid'>(token ? 'form' : 'invalid')
 const password = ref('')
 const saving = ref(false)
 const error = ref('')
 const fieldErrors = ref<string[]>([])
-const email = ref('')
-const resending = ref(false)
-
 const canSubmit = computed(() => passwordAcceptable(password.value))
 
-// The address is only confirmed once the owner has chosen the password, so nobody who typed
-// this address into the sign-up form elsewhere ever gets to set it.
 async function submit() {
   error.value = ''
   fieldErrors.value = []
   saving.value = true
   try {
-    await authApi.verifyEmail(token, password.value)
+    await authApi.resetPassword(token, password.value)
     state.value = 'success'
   } catch (e) {
     if (e instanceof ApiError && e.status === 400) {
@@ -44,47 +37,34 @@ async function submit() {
     saving.value = false
   }
 }
-
-async function resend() {
-  resending.value = true
-  try {
-    await authApi.resendVerification(email.value.trim())
-    toast.success('If that account needs verifying, a new link is on its way.')
-  } catch (e) {
-    toast.error(describeError(e))
-  } finally {
-    resending.value = false
-  }
-}
 </script>
 
 <template>
   <div class="card p-6 sm:p-8">
     <template v-if="state === 'form'">
       <div class="text-center">
-        <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed-variant"><Icon name="verified" fill :size="24" /></span>
-        <h1 class="text-2xl font-semibold tracking-tight">Choose your password</h1>
-        <p class="mt-1 text-on-surface-variant">This confirms your email and finishes creating your account.</p>
+        <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed-variant"><Icon name="key" fill :size="24" /></span>
+        <h1 class="text-2xl font-semibold tracking-tight">Choose a new password</h1>
+        <p class="mt-1 text-on-surface-variant">You'll be signed out everywhere else.</p>
       </div>
-
       <form class="mt-7 space-y-4" novalidate @submit.prevent="submit">
         <div>
-          <PasswordField id="new-password" v-model="password" label="Password" autocomplete="new-password" :invalid="fieldErrors.length > 0" />
+          <PasswordField id="new-password" v-model="password" label="New password" autocomplete="new-password" :invalid="fieldErrors.length > 0" />
           <PasswordStrength :password="password" />
           <p v-for="msg in fieldErrors" :key="msg" class="mt-1 text-[13px] text-error">{{ msg }}</p>
         </div>
         <p v-if="error" class="flex items-start gap-2 rounded-xl bg-error-container px-4 py-3 text-sm text-on-error-container" role="alert">
           <Icon name="error" fill :size="18" class="mt-px" />{{ error }}
         </p>
-        <BaseButton type="submit" size="lg" block :loading="saving" :disabled="!canSubmit" icon-right="arrow_forward">Confirm and create account</BaseButton>
+        <BaseButton type="submit" size="lg" block :loading="saving" :disabled="!canSubmit" icon-right="arrow_forward">Save new password</BaseButton>
       </form>
     </template>
 
     <template v-else-if="state === 'success'">
       <div class="text-center">
         <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed-variant"><Icon name="verified" fill :size="28" /></span>
-        <h1 class="text-2xl font-semibold tracking-tight">You're all set</h1>
-        <p class="mt-2 text-on-surface-variant">Your email is confirmed and your password is saved. Log in to send your first file.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Password updated</h1>
+        <p class="mt-2 text-on-surface-variant">Log in with your new password.</p>
         <BaseButton class="mt-6" :to="{ name: 'login' }" size="lg" block icon-right="arrow_forward">Log in</BaseButton>
       </div>
     </template>
@@ -93,14 +73,10 @@ async function resend() {
       <div class="text-center">
         <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-error-container text-on-error-container"><Icon name="link_off" :size="28" /></span>
         <h1 class="text-2xl font-semibold tracking-tight">This link didn't work</h1>
-        <p class="mt-2 text-on-surface-variant">It may have expired or been used already. If you already set a password, just log in. Otherwise enter your email and we'll send a fresh link.</p>
+        <p class="mt-2 text-on-surface-variant">It may have expired or been used already.</p>
+        <BaseButton class="mt-6" :to="{ name: 'forgot-password' }" block icon="mail">Send a new reset link</BaseButton>
+        <p class="mt-4 text-sm"><RouterLink :to="{ name: 'login' }" class="font-medium text-primary hover:underline">Back to log in</RouterLink></p>
       </div>
-      <form class="mt-6 space-y-3 text-left" @submit.prevent="resend">
-        <label for="email" class="label">Email address</label>
-        <input id="email" v-model="email" type="email" class="field" placeholder="you@example.com" autocomplete="email" required />
-        <BaseButton type="submit" block :loading="resending" :disabled="!email.includes('@')" icon="mail">Send a new link</BaseButton>
-      </form>
-      <BaseButton class="mt-3" :to="{ name: 'login' }" variant="ghost" block>Back to log in</BaseButton>
     </template>
   </div>
 </template>

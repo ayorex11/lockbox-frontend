@@ -11,7 +11,8 @@ export type LinkMode = 'timed' | 'one_time'
 export type LinkStatus = 'active' | 'used' | 'expired' | 'revoked'
 export type TtlChoice = '1h' | '24h' | '7d'
 export type AuditEventType =
-  | 'link_created' | 'opened' | 'password_failed' | 'locked_out' | 'claimed' | 'revoked' | 'expired_cleanup'
+  | 'link_created' | 'opened' | 'password_failed' | 'locked_out' | 'claimed' | 'revoked'
+  | 'auto_revoked' | 'reissued' | 'expired_cleanup'
 
 export interface AuthUser { email: string; is_staff: boolean }
 
@@ -121,7 +122,8 @@ export type GoneReason = 'expired' | 'unavailable'
 export interface LinkGone { available: false; reason: GoneReason }
 
 export type ClaimResult =
-  | { ok: true; download_url: string; expires_in: number }
+  /** `reissue_token` lets this browser (and only this one) retry a download that failed midway. */
+  | { ok: true; download_url: string; expires_in: number; reissue_token?: string }
   | { ok: false; reason: GoneReason }
 
 // ---------------------------------------------------------------------------- errors
@@ -156,7 +158,18 @@ export class NetworkError extends Error {
 // ------------------------------------------------------------------------ token state
 let accessToken: string | null = null
 let onSessionLost: (() => void) | null = null
-let refreshInFlight: Promise<string | null> | null = null
+/**
+ * Why a refresh attempt ended. Only `rejected` means the server has actually said "this
+ * session is over". A dropped connection, a 429 from the throttle or a 5xx while the
+ * server wakes up are `unavailable`: the session may be perfectly fine, so nobody gets
+ * logged out (and no stored link key is touched) because of a blip.
+ */
+export type RefreshOutcome =
+  | { kind: 'ok'; token: string }
+  | { kind: 'rejected' }
+  | { kind: 'unavailable' }
+
+let refreshInFlight: Promise<RefreshOutcome> | null = null
 
 export function setAccessToken(token: string | null) { accessToken = token }
 export function getAccessToken() { return accessToken }
@@ -206,17 +219,20 @@ function toApiError(response: Response, data: Record<string, unknown>): ApiError
   return new ApiError(response.status, detail ?? `http_${response.status}`, data)
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+export async function refreshOutcome(): Promise<RefreshOutcome> {
   if (!refreshInFlight) {
-    refreshInFlight = (async () => {
+    refreshInFlight = (async (): Promise<RefreshOutcome> => {
       try {
         const response = await send('/api/auth/refresh', { method: 'POST', cookies: true }, null)
-        if (!response.ok) return null
-        const data = (await readBody(response)) as { access?: string }
-        accessToken = data.access ?? null
-        return accessToken
+        if (response.ok) {
+          const data = (await readBody(response)) as { access?: string }
+          accessToken = data.access ?? null
+          return accessToken ? { kind: 'ok', token: accessToken } : { kind: 'unavailable' }
+        }
+        if (response.status === 401 || response.status === 403) return { kind: 'rejected' }
+        return { kind: 'unavailable' }
       } catch {
-        return null
+        return { kind: 'unavailable' }
       } finally {
         refreshInFlight = null
       }
@@ -225,15 +241,25 @@ export async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight
 }
 
+/** Convenience for callers that only want a token or nothing. */
+export async function refreshAccessToken(): Promise<string | null> {
+  const outcome = await refreshOutcome()
+  return outcome.kind === 'ok' ? outcome.token : null
+}
+
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   let response = await send(path, opts, accessToken)
   if (response.status === 401 && opts.auth) {
-    const fresh = await refreshAccessToken()
-    if (fresh) {
-      response = await send(path, opts, fresh)
-    } else {
+    const outcome = await refreshOutcome()
+    if (outcome.kind === 'ok') {
+      response = await send(path, opts, outcome.token)
+    } else if (outcome.kind === 'rejected') {
       accessToken = null
       onSessionLost?.()
+    } else {
+      // Can't tell whether the session is alive. Fail this call as a connectivity problem
+      // and keep the session; the next call tries the refresh again.
+      throw new NetworkError()
     }
   }
   const data = await readBody(response)
@@ -243,11 +269,17 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 // ------------------------------------------------------------------------------- auth
 export const authApi = {
-  register: (email: string, password: string) =>
-    request<{ detail: string }>('/api/auth/register', { body: { email, password } }),
-  verifyEmail: (token: string) => request<{ detail: string }>('/api/auth/verify-email', { body: { token } }),
+  /** Email only: the password is chosen when the emailed link is opened. */
+  register: (email: string) => request<{ detail: string }>('/api/auth/register', { body: { email } }),
+  /** Confirms the address and sets the password. The link works once. */
+  verifyEmail: (token: string, password: string) =>
+    request<{ detail: string }>('/api/auth/verify-email', { body: { token, password } }),
   resendVerification: (email: string) =>
     request<{ detail: string }>('/api/auth/resend-verification', { body: { email } }),
+  forgotPassword: (email: string) =>
+    request<{ detail: string }>('/api/auth/forgot-password', { body: { email } }),
+  resetPassword: (token: string, password: string) =>
+    request<{ detail: string }>('/api/auth/reset-password', { body: { token, password } }),
   login: (email: string, password: string) =>
     request<{ access: string; user: AuthUser }>('/api/auth/login', {
       body: { email, password }, cookies: true,
@@ -307,7 +339,7 @@ export const recipientApi = {
   /** Throws ApiError for 401 (wrong_password | password_required) and 423 (locked, data.retry_after). */
   async claim(token: string, password?: string): Promise<ClaimResult> {
     try {
-      const data = await request<{ download_url: string; expires_in: number }>(`/api/s/${token}/claim/`, {
+      const data = await request<{ download_url: string; expires_in: number; reissue_token?: string }>(`/api/s/${token}/claim/`, {
         body: password ? { password } : {},
       })
       return { ok: true, ...data }
@@ -315,6 +347,20 @@ export const recipientApi = {
       if (error instanceof ApiError && error.status === 410) {
         return { ok: false, reason: error.data.reason === 'expired' ? 'expired' : 'unavailable' }
       }
+      throw error
+    }
+  },
+  /**
+   * Fresh download URL after a download failed midway. Needs the secret the claim returned,
+   * consumes nothing. Resolves null once the window is over (the server answers 410).
+   */
+  async reissue(token: string, reissueToken: string): Promise<{ download_url: string; expires_in: number } | null> {
+    try {
+      return await request<{ download_url: string; expires_in: number }>(`/api/s/${token}/reissue/`, {
+        body: { reissue_token: reissueToken },
+      })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 410) return null
       throw error
     }
   },

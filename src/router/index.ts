@@ -26,6 +26,8 @@ export const router = createRouter({
       component: () => import('@/layouts/CenteredLayout.vue'),
       children: [
         { path: 'login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { guestOnly: true, title: 'Log in' } },
+        { path: 'forgot-password', name: 'forgot-password', component: () => import('@/views/ForgotPasswordView.vue'), meta: { guestOnly: true, title: 'Reset your password' } },
+        { path: 'reset-password', name: 'reset-password', component: () => import('@/views/ResetPasswordView.vue'), meta: { title: 'Choose a new password' } },
         { path: 'signup', name: 'signup', component: () => import('@/views/SignupView.vue'), meta: { guestOnly: true, title: 'Create account' } },
         { path: 'check-email', name: 'check-email', component: () => import('@/views/CheckEmailView.vue'), meta: { title: 'Check your inbox' } },
         { path: 'verify-email', name: 'verify-email', component: () => import('@/views/VerifyEmailView.vue'), meta: { title: 'Confirm your email' } },
@@ -63,7 +65,7 @@ export function installSessionGuard() {
   setSessionLostHandler(() => {
     const auth = useAuthStore()
     if (!auth.isAuthenticated) return
-    auth.clearSession()
+    auth.clearSession(false) // keep the sender's stored link keys: this is not a logout
     const here = router.currentRoute.value
     if (here.meta.requiresAuth) router.replace({ name: 'login', query: { redirect: here.fullPath } })
   })

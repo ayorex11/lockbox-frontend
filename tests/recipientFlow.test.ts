@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '@/lib/api'
 import { encryptBytes, generateKey } from '@/lib/crypto'
-import { claimAndDecrypt, type RecipientDeps, type RecipientPhase } from '@/lib/recipientFlow'
+import { claimAndDecrypt, DOWNLOAD_RETRIES, type RecipientDeps, type RecipientPhase } from '@/lib/recipientFlow'
 
 const hooks = () => {
   const phases: RecipientPhase[] = []
@@ -65,5 +65,83 @@ describe('claimAndDecrypt', () => {
   it('rethrows unexpected errors instead of hiding them', async () => {
     const { key, deps } = await setup({ claim: vi.fn(async () => { throw new ApiError(500, 'http_500') }) })
     await expect(claimAndDecrypt('t', key, undefined, hooks().hooks, deps)).rejects.toMatchObject({ status: 500 })
+  })
+
+  describe('retrying a download that failed after the claim', () => {
+    const claimed = { ok: true as const, download_url: 'https://b2/get/first', expires_in: 60, reissue_token: 'secret-retry' }
+    const fresh = { download_url: 'https://b2/get/second', expires_in: 60 }
+
+    it('gets a fresh URL with the claim token and finishes the download', async () => {
+      const { key, plain, cipher, deps } = await setup()
+      const fetchCiphertext = vi.fn()
+        .mockRejectedValueOnce(new Error('network dropped'))
+        .mockResolvedValueOnce(cipher)
+      const reissue = vi.fn(async () => fresh)
+      const wait = vi.fn(async () => {})
+      const outcome = await claimAndDecrypt('tok', key, undefined, hooks().hooks, {
+        ...deps, claim: vi.fn(async () => claimed), fetchCiphertext, reissue, wait,
+      })
+      expect(outcome.kind).toBe('ok')
+      if (outcome.kind === 'ok') expect([...outcome.bytes]).toEqual([...plain])
+      expect(reissue).toHaveBeenCalledOnce()
+      expect(reissue).toHaveBeenCalledWith('tok', 'secret-retry')
+      expect(fetchCiphertext.mock.calls.map((c) => c[0])).toEqual(['https://b2/get/first', 'https://b2/get/second'])
+      expect(wait).toHaveBeenCalledOnce()
+    })
+
+    it('gives up after a bounded number of retries', async () => {
+      const { key, deps } = await setup()
+      const fetchCiphertext = vi.fn(async () => { throw new Error('still down') })
+      const reissue = vi.fn(async () => fresh)
+      const outcome = await claimAndDecrypt('tok', key, undefined, hooks().hooks, {
+        ...deps, claim: vi.fn(async () => claimed), fetchCiphertext, reissue, wait: async () => {},
+      })
+      expect(outcome.kind).toBe('download_failed')
+      expect(fetchCiphertext).toHaveBeenCalledTimes(DOWNLOAD_RETRIES + 1)
+      expect(reissue).toHaveBeenCalledTimes(DOWNLOAD_RETRIES)
+    })
+
+    it('does not retry when the server gave no token', async () => {
+      const { key, deps } = await setup()
+      const fetchCiphertext = vi.fn(async () => { throw new Error('down') })
+      const reissue = vi.fn()
+      const outcome = await claimAndDecrypt('tok', key, undefined, hooks().hooks, {
+        ...deps, fetchCiphertext, reissue, wait: async () => {},
+      })
+      expect(outcome.kind).toBe('download_failed')
+      expect(reissue).not.toHaveBeenCalled()
+    })
+
+    it('stops when the retry window has closed (reissue answers null)', async () => {
+      const { key, deps } = await setup()
+      const fetchCiphertext = vi.fn(async () => { throw new Error('down') })
+      const outcome = await claimAndDecrypt('tok', key, undefined, hooks().hooks, {
+        ...deps, claim: vi.fn(async () => claimed), fetchCiphertext, reissue: vi.fn(async () => null), wait: async () => {},
+      })
+      expect(outcome.kind).toBe('download_failed')
+      expect(fetchCiphertext).toHaveBeenCalledTimes(1)
+    })
+
+    it('stops when the reissue request itself fails', async () => {
+      const { key, deps } = await setup()
+      const outcome = await claimAndDecrypt('tok', key, undefined, hooks().hooks, {
+        ...deps,
+        claim: vi.fn(async () => claimed),
+        fetchCiphertext: vi.fn(async () => { throw new Error('down') }),
+        reissue: vi.fn(async () => { throw new NetworkError() }),
+        wait: async () => {},
+      })
+      expect(outcome.kind).toBe('download_failed')
+    })
+
+    it('never retries a decryption failure (the key is wrong, not the network)', async () => {
+      const { deps } = await setup()
+      const reissue = vi.fn()
+      const outcome = await claimAndDecrypt('tok', generateKey(), undefined, hooks().hooks, {
+        ...deps, claim: vi.fn(async () => claimed), reissue, wait: async () => {},
+      })
+      expect(outcome.kind).toBe('decrypt_failed')
+      expect(reissue).not.toHaveBeenCalled()
+    })
   })
 })

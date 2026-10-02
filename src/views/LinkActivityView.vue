@@ -43,6 +43,8 @@ const eventMeta: Record<AuditEventType, { icon: string; title: string; detail: s
   locked_out: { icon: 'lock_clock', title: 'Link locked', detail: "Too many wrong passwords. It is paused for 15 minutes.", tone: 'bad' },
   claimed: { icon: 'download_done', title: 'Download started', detail: 'The encrypted file was handed to the recipient’s browser.', tone: 'ok' },
   revoked: { icon: 'block', title: 'Link revoked', detail: 'You switched this link off and the file was deleted.', tone: 'bad' },
+  auto_revoked: { icon: 'gpp_bad', title: 'Link disabled for safety', detail: 'Someone entered wrong passwords repeatedly, so the link was switched off and the file deleted.', tone: 'bad' },
+  reissued: { icon: 'replay', title: 'Download retried', detail: 'The recipient’s connection dropped, so a fresh download address was issued. It did not count as another download.', tone: 'info' },
   expired_cleanup: { icon: 'auto_delete', title: 'Link expired', detail: 'The file was deleted after the link ran out.', tone: 'info' },
 }
 const toneClass = { ok: 'bg-primary text-on-primary', info: 'bg-surface-container-high text-on-surface-variant', warn: 'bg-tertiary-container text-on-tertiary-container', bad: 'bg-error-container text-on-error-container' }
@@ -147,7 +149,7 @@ const lifespan = computed(() => {
       <div class="mt-5 grid gap-4 sm:grid-cols-3">
         <StatCard label="Downloads" :value="downloads" icon="download" :hint="link.mode === 'one_time' ? 'Self-destructs after the first download' : link.max_downloads ? 'Limit set on this link' : 'No download limit'" />
         <StatCard :label="link.status === 'active' ? 'Time left' : 'Lifespan'" :value="lifespan" icon="schedule" :hint="`Expires ${formatDateTime(link.expires_at)}`" />
-        <StatCard label="Protection" :value="link.requires_password ? 'Password' : 'Link only'" icon="key" :hint="link.requires_password ? 'Locks for 15 min after 5 wrong tries' : 'Anyone with the full link can open it'" />
+        <StatCard label="Protection" :value="link.requires_password ? 'Password' : 'Link only'" icon="key" :hint="link.requires_password ? 'Locks for 15 min after 5 wrong tries; deleted after 3 lockouts' : 'Anyone with the full link can open it'" />
       </div>
 
       <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

@@ -108,6 +108,9 @@ const cannotSee = ['What is inside your file', 'The key that unlocks it, which l
             </ul>
           </div>
         </div>
+        <div class="mx-auto mt-5 max-w-4xl rounded-2xl bg-surface-container-low p-5 text-[14px] leading-relaxed text-on-surface-variant">
+          <p class="flex gap-2"><Icon name="info" :size="18" class="mt-0.5 shrink-0 text-outline" /><span><strong class="text-on-surface">Good to know.</strong> Anyone who has your full link can open the file, unless you add a password. Before the password step they can see the file name and size, and your email if you chose to show it. If you send a link by email, add a password and share it on a different channel, so a compromised inbox alone can't unlock the file.</span></p>
+        </div>
       </div>
     </section>
 

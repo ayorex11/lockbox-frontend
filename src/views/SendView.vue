@@ -49,8 +49,8 @@ const ttlOptions: { value: TtlChoice; label: string }[] = [
 ]
 const downloadCaps = [0, 1, 3, 5, 10, 25, 50]
 
-const passwordTooShort = computed(() => options.usePassword && options.password.length > 0 && options.password.length < 6)
-const canCreate = computed(() => !!file.value && (!options.usePassword || options.password.length >= 6))
+const passwordTooShort = computed(() => options.usePassword && options.password.length > 0 && options.password.length < LINK_PASSWORD_MIN)
+const canCreate = computed(() => !!file.value && (!options.usePassword || options.password.length >= LINK_PASSWORD_MIN))
 
 function choose(picked: File) {
   fileError.value = ''
@@ -84,9 +84,14 @@ const overall = computed(() => {
   }
 })
 
+const LINK_PASSWORD_MIN = 8
+
 function explain(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'file_limit_reached') return "You have too many active files. Revoke a link you no longer need, or wait for some to expire."
+    const passwordCode = error.fieldErrors.password?.[0]
+    if (passwordCode === 'password_too_common') return 'That link password is too easy to guess. Go back to options and choose a longer or less common one.'
+    if (passwordCode === 'password_too_short') return 'Use at least 8 characters for the link password.'
     const first = Object.values(error.fieldErrors)[0]?.[0]
     if (error.status === 400 && first) return `The server rejected the request (${first.replaceAll('_', ' ')}).`
   }
@@ -192,9 +197,9 @@ function reset() {
       <div class="space-y-3">
         <ToggleSwitch v-model="options.usePassword" icon="key" label="Add a password" description="The recipient must enter it before they can download." />
         <div v-if="options.usePassword">
-          <PasswordField id="link-password" v-model="options.password" placeholder="At least 6 characters" autocomplete="off" :invalid="passwordTooShort" />
-          <p v-if="passwordTooShort" class="mt-1 text-[13px] text-error">Use at least 6 characters.</p>
-          <p class="hint mt-1.5">Share the password separately from the link. After 5 wrong tries the link locks for 15 minutes.</p>
+          <PasswordField id="link-password" v-model="options.password" placeholder="At least 8 characters" autocomplete="off" :invalid="passwordTooShort" />
+          <p v-if="passwordTooShort" class="mt-1 text-[13px] text-error">Use at least 8 characters.</p>
+          <p class="hint mt-1.5">Share the password separately from the link. After 5 wrong tries the link locks for 15 minutes, and after 3 lockouts it is deleted. Avoid common passwords.</p>
         </div>
         <ToggleSwitch v-model="options.showSenderEmail" icon="badge" label="Show my email to the recipient" description="They'll see who sent the file. Turn off to stay anonymous." />
       </div>
